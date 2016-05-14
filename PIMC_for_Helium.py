@@ -13,7 +13,6 @@ density n = 1.88 e-2 \AA^-3 = 0.314 (with \sigma = 1)
 
 import numpy as np
 from numpy import linalg as la
-import itertools 
 import random
 from copy import deepcopy
 import time
@@ -23,7 +22,6 @@ import logging.handlers
 import cPickle as pickle
 from pprint import pprint
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 d = 3                              # Spacial Dimension
 epsilon = 5.5086                   # In natural Units' system
@@ -31,8 +29,8 @@ m_staging = 10                     # Staging length
 N = 16                             # Number of particles
 M = 20                             # Number os time slices
 MCSteps = 3000                     # Number of Mento Carlo steps
-ThermalSteps = 20                   # Number of thermalizing steps
-observeSkip = 2                    # Steps interval for observing winding number
+ThermalSteps = 100                 # Number of thermalizing steps
+observeSkip = 10                   # Steps interval for observing winding number
 L = [pow(N/0.314, 0.333)]*3        # the scale of the simulation box
 # Suppose there is periodic boundary conditions along x, y, z directions. 
 # ================================================================================================
@@ -169,6 +167,9 @@ class configuration:
 		'''
 		while 1:
 			deltr = bead1.r-bead2.r
+			for dd in range(d):
+				if np.abs(deltr[dd]) > 0.5*L[dd]:
+					deltr[dd] = L[dd] - deltr[dd]
 			r = la.norm(deltr)
 			if r >= 0.8:
 				v = 4.0*epsilon*(pow(r,-12) - pow(r,-6))
@@ -550,9 +551,9 @@ class configuration:
 			logger.info('                    %s' % str(perm_indexes0))
 
 			# record old actions
-			# old_action = 0.0
-			# for j in range(s-1):
-			# 	old_action += self.__PotentialAction(k+j+1)
+			old_action = 0.0
+			for j in range(s-1):
+				old_action += self.__PotentialAction(k+j+1)
 
 			old_connection = {}
 			old_position = {}
@@ -583,32 +584,32 @@ class configuration:
 				self.__connect(self.particles[ii1].getOwnBead(k+s-1), self.particles[ii2].getOwnBead(k+s), period_shift = period_shift) 
 				self.BisectionMove(self.particles[ii1].getOwnBead(k), self.particles[ii2].getOwnBead(k+s), onlyMove = True)
 
-			# # calculate new_action
-			# new_action = 0.0
-			# for j in range(s-1):
-			# 	new_action += self.__PotentialAction(k+j+1)
+			# calculate new_action
+			new_action = 0.0
+			for j in range(s-1):
+				new_action += self.__PotentialAction(k+j+1)
 
-			# if np.random.random() < np.exp(-(new_action - old_action)):
-			# 	# Accepted!
-			# 	logger.info('Permutation done')
-			# 	return True
-			# else:
-			# 	# Rejected!
-			# 	logger.info('BisectionMove Rejected!')					
-			# 	logger.info('restoring...')
+			if np.random.random() < np.exp(-(new_action - old_action)):
+				# Accepted!
+				logger.info('Permutation done')
+				return True
+			else:
+				# Rejected!
+				logger.info('BisectionMove Rejected!')					
+				logger.info('restoring...')
 
-			# 	# restore to the previous state:
-			# 	for ii in range(len(indexes0)):
-			# 		ii1 = indexes0[ii]
-			# 		# restore the connection
-			# 		self.particles[ii1].getOwnBead(k+s-1).next = self.particles[ old_connection[ii1] ].getOwnBead(k+s)
-			# 		self.particles[old_connection[ii1]].getOwnBead(k+s).prev = self.particles[ii1].getOwnBead(k+s-1)
-			# 		# restore the positions and period shifts
-			# 		for gg in range(s):
-			# 			self.particles[ii1].getOwnBead(k+gg).r = old_position[ii1][gg]
-			# 			self.particles[ii1].getOwnBead(k+gg).nextShift = old_shifts[ii1][gg]
+				# restore to the previous state:
+				for ii in range(len(indexes0)):
+					ii1 = indexes0[ii]
+					# restore the connection
+					self.particles[ii1].getOwnBead(k+s-1).next = self.particles[ old_connection[ii1] ].getOwnBead(k+s)
+					self.particles[old_connection[ii1]].getOwnBead(k+s).prev = self.particles[ii1].getOwnBead(k+s-1)
+					# restore the positions and period shifts
+					for gg in range(s):
+						self.particles[ii1].getOwnBead(k+gg).r = old_position[ii1][gg]
+						self.particles[ii1].getOwnBead(k+gg).nextShift = old_shifts[ii1][gg]
 
-			# 	return False
+				return False
 		else:
 			logger.info('Permutation Rejected! None exchanged.')
 			return False
@@ -662,7 +663,6 @@ def WindingNumberEstimator(cfg):
 				if tmp is start:
 					break
 				tmp0 = tmp
-			# print displacement
 	# winding number is a vector here
 	return WindingNumber
 
